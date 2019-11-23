@@ -1,8 +1,5 @@
-from os import system, name
-
 # Constants for messages
 MENU = "Give your preference: (1: read new input file, 2: print statistics for a specific product, 3: print statistics for a specific AFM, 4: exit the program)"
-INVALID_OPTION = "invalidOption"
 ASK_AFM = "Give the AFM: "
 ASK_PRODUCT = "Give the product name: "
 ASK_INPUT = "Give name/path to input file: "
@@ -14,7 +11,7 @@ class StatsHandler(object):
         self.afm_per_product_sales = {}
     
 
-    # methods for updating data structures
+    # functions for updating data structures
     def update_stats(self, receipt):
         self.update_product_per_afm(receipt)
         self.update_afm_per_product(receipt)
@@ -43,6 +40,7 @@ class StatsHandler(object):
                     product_sales = {entry.product : entry.total_price}
             self.afm_per_product_sales[receipt.afm] = product_sales
 
+    # functions for preparing output
     def afm_to_string(self, product):
         afm_sales = self.product_per_afm_sales.get(product)
         if afm_sales:
@@ -79,15 +77,6 @@ def is_valid_afm(afm):
         return len(afm) == 10 and "-" not in afm
     except ValueError:
         return False
-
-# function adopted from https://www.geeksforgeeks.org/clear-screen-python/
-def clear_console():
-    # for windows 
-    if name == 'nt': 
-        _ = system('cls')
-    # for mac and linux(here, os.name is 'posix') 
-    else: 
-        _ = system('clear')
 
 class MenuHandler(object):
     def __init__(self, stats_handler):
