@@ -53,12 +53,12 @@ class StatsHandler(object):
     def afm_to_string(self, product):
         afm_sales = self.product_per_afm_sales.get(product)
         if afm_sales:
-            return "\n".join('{} {}'.format(afm, total_price) for afm, total_price in sorted(afm_sales.items()))
+            return "\n".join('{} {:.2f}'.format(afm, float(total_price)) for afm, total_price in sorted(afm_sales.items()))
 
     def product_to_string(self, afm):
         product_sales = self.afm_per_product_sales.get(afm)
         if product_sales:
-            return "\n".join('{} {}'.format(product, total_price) for product, total_price in sorted(product_sales.items()))
+            return "\n".join('{} {:.2f}'.format(product, float(total_price)) for product, total_price in sorted(product_sales.items()))
 
 # model classes for parsing input files
 class Receipt(object):
