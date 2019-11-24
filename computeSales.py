@@ -1,8 +1,17 @@
+import re
+
 # Constants for messages
 MENU = "Give your preference: (1: read new input file, 2: print statistics for a specific product, 3: print statistics for a specific AFM, 4: exit the program)"
 ASK_AFM = "Give the AFM: "
 ASK_PRODUCT = "Give the product name: "
 ASK_INPUT = "Give name/path to input file: "
+NOT_INITIALIZED = "notInitialized"
+INITIALIZED = "initialized"
+INVALID = "invalid"
+AFM_PROVIDED = "afmProvided"
+ENTRY_PROVIDED = "entryProvided"
+TOTAL_PROVIDED = "totalProvided"
+COMPLETED = "completed"
 
 class StatsHandler(object):
     def __init__(self):
@@ -21,7 +30,7 @@ class StatsHandler(object):
             if entry.product in self.product_per_afm_sales:
                 afm_sales = self.product_per_afm_sales.get(entry.product)
                 if receipt.afm in afm_sales:
-                    afm_sales[receipt.afm] += entry.total_price
+                    afm_sales[receipt.afm] = str(round(float(afm_sales[receipt.afm]) + float(entry.total_price), 2))
                 else:
                     afm_sales[receipt.afm] = entry.total_price
             else:
@@ -33,7 +42,7 @@ class StatsHandler(object):
             if receipt.afm in self.afm_per_product_sales:
                 product_sales = self.afm_per_product_sales.get(receipt.afm)
                 if entry.product in product_sales:
-                    product_sales[entry.product] += entry.total_price
+                    product_sales[entry.product] = str(round(float(product_sales[entry.product]) + float(entry.total_price), 2))
                 else:
                     product_sales[entry.product] = entry.total_price
             else:
@@ -59,11 +68,11 @@ class Receipt(object):
         self.afm = afm
         
     def add_entry(self, receipt_entry):
-        self.entries.insert(receipt_entry)
-        self.total_price += receipt_entry.total_price
+        self.entries.append(receipt_entry)
+        self.total_price = round(self.total_price + float(receipt_entry.total_price), 2)
 
     def has_correct_total(self, total_price):
-        return self.total_price == total_price
+        return str(self.total_price) == total_price
 class ReceiptEntry(object):
     def __init__(self, product, amount, unit_price, total_price):
         self.product = product
@@ -71,12 +80,88 @@ class ReceiptEntry(object):
         self.unit_price = unit_price
         self.total_price = total_price
 
+    def has_correct_total(self):
+        try:
+            return self.total_price ==  str(round(float(self.unit_price) * float(self.amount), 2))
+        except (OverflowError, ValueError):
+            return False
+    
+
 def is_valid_afm(afm):
     try:
         int(afm)
         return len(afm) == 10 and "-" not in afm
     except ValueError:
         return False
+
+class ReceiptParser(object):
+    def __init__(self):
+        self.status = NOT_INITIALIZED
+        self.receipt = None
+
+    def get_receipt(self):
+        if self.status == COMPLETED:
+            return self.receipt
+
+    def update_status(self, line):
+        if self.status == NOT_INITIALIZED:
+            if re.search("^-+$", line):
+                self.status = INITIALIZED
+        elif self.status == INITIALIZED or self.status == COMPLETED:
+            if re.search(r"^ΑΦΜ:\s+\d{10}$", line):
+                tokens = re.split(r"\s+", line)
+                self.receipt = Receipt(tokens[1])
+                self.status = AFM_PROVIDED
+            elif not re.search("^-+$", line):
+                self.status = INVALID
+                self.receipt = None
+        elif self.status == INVALID:
+            if re.search("^-+$", line):
+                self.status = NOT_INITIALIZED
+        elif self.status == AFM_PROVIDED:
+            if re.search(r"^\w+:\s+\d+\s+\d+\.\d{2}\s+\d+\.\d{2}$", line):
+                tokens = re.split(r"\s+", line)
+                entry = ReceiptEntry(tokens[0].strip(":").upper(), tokens[1], tokens[2], tokens[3])
+                if (entry.has_correct_total()):
+                    self.receipt.add_entry(entry)
+                    self.status = ENTRY_PROVIDED
+                else:
+                    self.status = INVALID
+                    self.receipt = None              
+            elif re.search("^-+$", line):
+                self.status = INITIALIZED
+                self.receipt = None
+            else:
+                self.status = INVALID
+                self.receipt = None
+        elif self.status == ENTRY_PROVIDED:
+            if re.search(r"^\w+:\s+\d+\s+\d+\.\d{2}\s+\d+\.\d{2}$", line):
+                tokens = re.split(r"\s+", line)
+                entry = ReceiptEntry(tokens[0].strip(":").upper(), tokens[1], tokens[2], tokens[3])
+                if (entry.has_correct_total()):
+                    self.receipt.add_entry(entry)
+                else:
+                    self.status = INVALID
+                    self.receipt = None              
+            elif re.search("^-+$", line):
+                self.status = INITIALIZED
+                self.receipt = None
+            elif re.search(r"^ΣΥΝΟΛΟ:\s+\d+\.\d{2}$", line):
+                tokens = re.split(r"\s+", line)
+                if (self.receipt.has_correct_total(tokens[1])):
+                    self.status = TOTAL_PROVIDED
+                else:
+                    self.status = INVALID
+                    self.receipt = None            
+            else:
+                self.status = INVALID
+                self.receipt = None
+        elif self.status == TOTAL_PROVIDED:
+            if re.search("^-+$", line):
+                self.status = COMPLETED
+            else:
+                self.status = INVALID
+                self.receipt = None
 
 class MenuHandler(object):
     def __init__(self, stats_handler):
@@ -88,10 +173,20 @@ class MenuHandler(object):
         return option()
 
     def option_1(self):
-        input_file = input(ASK_INPUT)
+        filename = input(ASK_INPUT)
+        try:
+            with open(filename) as f:
+                parser = ReceiptParser()
+                for line in f:
+                    parser.update_status(line)
+                    receipt = parser.get_receipt()
+                    if (receipt):
+                        self.stats_handler.update_stats(receipt)
+        except (FileNotFoundError, UnicodeDecodeError):
+            return
 
     def option_2(self):
-        product = input(ASK_PRODUCT)
+        product = input(ASK_PRODUCT).upper()
         return self.stats_handler.afm_to_string(product)
 
     def option_3(self):
