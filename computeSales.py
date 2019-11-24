@@ -5,13 +5,6 @@ MENU = "Give your preference: (1: read new input file, 2: print statistics for a
 ASK_AFM = "Give the AFM: "
 ASK_PRODUCT = "Give the product name: "
 ASK_INPUT = "Give name/path to input file: "
-NOT_INITIALIZED = "notInitialized"
-INITIALIZED = "initialized"
-INVALID = "invalid"
-AFM_PROVIDED = "afmProvided"
-ENTRY_PROVIDED = "entryProvided"
-TOTAL_PROVIDED = "totalProvided"
-COMPLETED = "completed"
 
 class StatsHandler(object):
     def __init__(self):
@@ -95,94 +88,120 @@ def is_valid_afm(afm):
         return False
 
 class ReceiptParser(object):
+    # Receipt parser states
+    NOT_INITIALIZED = "not_initialized"
+    INITIALIZED = "initialized"
+    INVALID = "invalid"
+    AFM_PROVIDED = "afm_provided"
+    ENTRY_PROVIDED = "entry_provided"
+    TOTAL_PROVIDED = "total_provided"
+    COMPLETED = "completed"
+
     def __init__(self):
-        self.status = NOT_INITIALIZED
+        self.state = self.NOT_INITIALIZED
         self.receipt = None
 
     def get_receipt(self):
-        if self.status == COMPLETED:
+        if self.state == self.COMPLETED:
             return self.receipt
 
-    def update_status(self, line):
-        if self.status == NOT_INITIALIZED:
-            if re.search("^-+$", line):
-                self.status = INITIALIZED
-        elif self.status == INITIALIZED or self.status == COMPLETED:
-            if re.search(r"^ΑΦΜ:\s+\d{10}$", line):
-                tokens = re.split(r"\s+", line)
-                self.receipt = Receipt(tokens[1])
-                self.status = AFM_PROVIDED
-            elif not re.search("^-+$", line):
-                self.status = INVALID
-                self.receipt = None
-        elif self.status == INVALID:
-            if re.search("^-+$", line):
-                self.status = NOT_INITIALIZED
-        elif self.status == AFM_PROVIDED:
-            if re.search(r"^\w+:\s+\d+\s+\d+\.\d{2}\s+\d+\.\d{2}$", line):
-                tokens = re.split(r"\s+", line)
-                entry = ReceiptEntry(tokens[0].strip(":").upper(), tokens[1], tokens[2], tokens[3])
-                if (entry.has_correct_total()):
-                    self.receipt.add_entry(entry)
-                    self.status = ENTRY_PROVIDED
-                else:
-                    self.status = INVALID
-                    self.receipt = None              
-            elif re.search("^-+$", line):
-                self.status = INITIALIZED
-                self.receipt = None
+    def update_not_initialized(self, line):
+        if re.search("^-+$", line):
+            self.state = self.INITIALIZED
+ 
+    def update_initialized(self, line):
+        if re.search(r"^ΑΦΜ:\s+\d{10}$", line):
+            tokens = re.split(r"\s+", line)
+            self.receipt = Receipt(tokens[1])
+            self.state = self.AFM_PROVIDED
+        elif not re.search("^-+$", line):
+            self.state = self.INVALID
+            self.receipt = None
+        else:
+            self.state = self.INITIALIZED
+            self.receipt = None
+    
+    def update_completed(self, line):
+        self.update_initialized(line)
+    
+    def update_entry_provided(self, line):
+        if re.search(r"^\w+:\s+\d+\s+\d+\.\d{2}\s+\d+\.\d{2}$", line):
+            tokens = re.split(r"\s+", line)
+            entry = ReceiptEntry(tokens[0].strip(":").upper(), tokens[1], tokens[2], tokens[3])
+            if (entry.has_correct_total()):
+                self.receipt.add_entry(entry)
             else:
-                self.status = INVALID
-                self.receipt = None
-        elif self.status == ENTRY_PROVIDED:
-            if re.search(r"^\w+:\s+\d+\s+\d+\.\d{2}\s+\d+\.\d{2}$", line):
-                tokens = re.split(r"\s+", line)
-                entry = ReceiptEntry(tokens[0].strip(":").upper(), tokens[1], tokens[2], tokens[3])
-                if (entry.has_correct_total()):
-                    self.receipt.add_entry(entry)
-                else:
-                    self.status = INVALID
-                    self.receipt = None              
-            elif re.search("^-+$", line):
-                self.status = INITIALIZED
-                self.receipt = None
-            elif re.search(r"^ΣΥΝΟΛΟ:\s+\d+\.\d{2}$", line):
-                tokens = re.split(r"\s+", line)
-                if (self.receipt.has_correct_total(tokens[1])):
-                    self.status = TOTAL_PROVIDED
-                else:
-                    self.status = INVALID
-                    self.receipt = None            
+                self.state = self.INVALID
+                self.receipt = None              
+        elif re.search("^-+$", line):
+            self.state = self.INITIALIZED
+            self.receipt = None
+        elif re.search(r"^ΣΥΝΟΛΟ:\s+\d+\.\d{2}$", line):
+            tokens = re.split(r"\s+", line)
+            if (self.receipt.has_correct_total(tokens[1])):
+                self.state = self.TOTAL_PROVIDED
             else:
-                self.status = INVALID
-                self.receipt = None
-        elif self.status == TOTAL_PROVIDED:
-            if re.search("^-+$", line):
-                self.status = COMPLETED
+                self.state = self.INVALID
+                self.receipt = None            
+        else:
+            self.state = self.INVALID
+            self.receipt = None
+    
+    def update_afm_provided(self, line):
+        if re.search(r"^\w+:\s+\d+\s+\d+\.\d{2}\s+\d+\.\d{2}$", line):
+            tokens = re.split(r"\s+", line)
+            entry = ReceiptEntry(tokens[0].strip(":").upper(), tokens[1], tokens[2], tokens[3])
+            if (entry.has_correct_total()):
+                self.receipt.add_entry(entry)
+                self.state = self.ENTRY_PROVIDED
             else:
-                self.status = INVALID
-                self.receipt = None
+                self.state = self.INVALID
+                self.receipt = None              
+        elif re.search("^-+$", line):
+            self.state = self.INITIALIZED
+            self.receipt = None
+        else:
+            self.state = self.INVALID
+            self.receipt = None
+    
+    def update_total_provided(self, line):
+        if re.search("^-+$", line):
+            self.state = self.COMPLETED
+        else:
+            self.state = self.INVALID
+            self.receipt = None
+    
+    def update_invalid(self, line):
+        if re.search("^-+$", line):
+            self.state = self.NOT_INITIALIZED
+
+    def update_state(self, line):
+        update_method = getattr(self, 'update_' + self.state, lambda: None)
+        update_method(line)
 
 class MenuHandler(object):
     def __init__(self, stats_handler):
         self.stats_handler = stats_handler
 
     def call_chosen_method(self, choice):
-        chosen_option = 'option_' + str(choice)
-        option = getattr(self, chosen_option, lambda: None)
+        option = getattr(self, 'option_' + str(choice), lambda: None)
         return option()
 
+    # reading input file line by line
+    # ReceiptParser holds information for receipt validation
+    # When ReceiptParser returns a valid receipt, StatsHandler takes care
+    # of updating overall data for menu options 2 and 3
     def option_1(self):
         filename = input(ASK_INPUT)
         try:
             with open(filename) as f:
                 parser = ReceiptParser()
                 for line in f:
-                    parser.update_status(line)
+                    parser.update_state(line)
                     receipt = parser.get_receipt()
                     if (receipt):
                         self.stats_handler.update_stats(receipt)
-        except (FileNotFoundError, UnicodeDecodeError):
+        except (FileNotFoundError, UnicodeDecodeError, MemoryError):
             return
 
     def option_2(self):
