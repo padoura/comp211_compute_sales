@@ -23,7 +23,7 @@ class StatsHandler(object):
             if entry.product in self.product_per_afm_sales:
                 afm_sales = self.product_per_afm_sales.get(entry.product)
                 if receipt.afm in afm_sales:
-                    afm_sales[receipt.afm] = str(round(float(afm_sales[receipt.afm]) + float(entry.total_price), 2))
+                    afm_sales[receipt.afm] = afm_sales[receipt.afm] + entry.total_price
                 else:
                     afm_sales[receipt.afm] = entry.total_price
             else:
@@ -35,7 +35,7 @@ class StatsHandler(object):
             if receipt.afm in self.afm_per_product_sales:
                 product_sales = self.afm_per_product_sales.get(receipt.afm)
                 if entry.product in product_sales:
-                    product_sales[entry.product] = str(round(float(product_sales[entry.product]) + float(entry.total_price), 2))
+                    product_sales[entry.product] = product_sales[entry.product] + entry.total_price
                 else:
                     product_sales[entry.product] = entry.total_price
             else:
@@ -46,26 +46,35 @@ class StatsHandler(object):
     def afm_to_string(self, product):
         afm_sales = self.product_per_afm_sales.get(product)
         if afm_sales:
-            return "\n".join('{} {:.2f}'.format(afm, float(total_price)) for afm, total_price in sorted(afm_sales.items()))
+            return "\n".join('{} {}'.format(afm, self.format_price(total_price)) for afm, total_price in sorted(afm_sales.items()))
 
     def product_to_string(self, afm):
         product_sales = self.afm_per_product_sales.get(afm)
         if product_sales:
-            return "\n".join('{} {:.2f}'.format(product, float(total_price)) for product, total_price in sorted(product_sales.items()))
+            return "\n".join('{} {}'.format(product, self.format_price(total_price)) for product, total_price in sorted(product_sales.items()))
+
+    def format_price(self, total_price):
+        if total_price < 10:
+            return "0.0" + str(total_price)
+        elif total_price < 100:
+            return "0." + str(total_price)
+        else:
+            string_price = str(total_price)
+            return string_price[:-2] + "." + string_price[-2:]
 
 # model classes for parsing input files
 class Receipt(object):
     def __init__(self, afm):
-        self.total_price = 0.00
+        self.total_price = 0
         self.entries = []
         self.afm = afm
         
     def add_entry(self, receipt_entry):
         self.entries.append(receipt_entry)
-        self.total_price = round(self.total_price + float(receipt_entry.total_price), 2)
+        self.total_price = self.total_price + receipt_entry.total_price
 
     def has_correct_total(self, total_price):
-        return self.total_price == float(total_price)
+        return self.total_price == total_price
 class ReceiptEntry(object):
     def __init__(self, product, amount, unit_price, total_price):
         self.product = product
@@ -75,7 +84,7 @@ class ReceiptEntry(object):
 
     def has_correct_total(self):
         try:
-            return float(self.total_price) ==  round(float(self.unit_price) * float(self.amount), 2)
+            return self.total_price == self.unit_price * self.amount
         except (OverflowError, ValueError):
             return False
     
@@ -127,7 +136,7 @@ class ReceiptParser(object):
     def update_entry_provided(self, line):
         if re.search(r"^\w+:\s+\d+\s+\d+\.\d{2}\s+\d+\.\d{2}$", line):
             tokens = re.split(r"\s+", line)
-            entry = ReceiptEntry(tokens[0].strip(":").upper(), tokens[1], tokens[2], tokens[3])
+            entry = ReceiptEntry(tokens[0].strip(":").upper(), int(tokens[1]), int(tokens[2].replace(".","")), int(tokens[3].replace(".","")))
             if (entry.has_correct_total()):
                 self.receipt.add_entry(entry)
             else:
@@ -138,7 +147,7 @@ class ReceiptParser(object):
             self.receipt = None
         elif re.search(r"^ΣΥΝΟΛΟ:\s+\d+\.\d{2}$", line):
             tokens = re.split(r"\s+", line)
-            if (self.receipt.has_correct_total(tokens[1])):
+            if (self.receipt.has_correct_total(int(tokens[1].replace(".","")))):
                 self.state = self.TOTAL_PROVIDED
             else:
                 self.state = self.INVALID
@@ -150,7 +159,7 @@ class ReceiptParser(object):
     def update_afm_provided(self, line):
         if re.search(r"^\w+:\s+\d+\s+\d+\.\d{2}\s+\d+\.\d{2}$", line):
             tokens = re.split(r"\s+", line)
-            entry = ReceiptEntry(tokens[0].strip(":").upper(), tokens[1], tokens[2], tokens[3])
+            entry = ReceiptEntry(tokens[0].strip(":").upper(), int(tokens[1]), int(tokens[2].replace(".","")), int(tokens[3].replace(".","")))
             if (entry.has_correct_total()):
                 self.receipt.add_entry(entry)
                 self.state = self.ENTRY_PROVIDED
