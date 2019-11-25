@@ -65,7 +65,7 @@ class Receipt(object):
         self.total_price = round(self.total_price + float(receipt_entry.total_price), 2)
 
     def has_correct_total(self, total_price):
-        return str(self.total_price) == total_price
+        return self.total_price == float(total_price)
 class ReceiptEntry(object):
     def __init__(self, product, amount, unit_price, total_price):
         self.product = product
@@ -75,7 +75,7 @@ class ReceiptEntry(object):
 
     def has_correct_total(self):
         try:
-            return self.total_price ==  str(round(float(self.unit_price) * float(self.amount), 2))
+            return float(self.total_price) ==  round(float(self.unit_price) * float(self.amount), 2)
         except (OverflowError, ValueError):
             return False
     
@@ -173,7 +173,7 @@ class ReceiptParser(object):
     
     def update_invalid(self, line):
         if re.search("^-+$", line):
-            self.state = self.NOT_INITIALIZED
+            self.state = self.INITIALIZED
 
     def update_state(self, line):
         update_method = getattr(self, 'update_' + self.state, lambda: None)
@@ -194,7 +194,7 @@ class MenuHandler(object):
     def option_1(self):
         filename = input(ASK_INPUT)
         try:
-            with open(filename) as f:
+            with open(filename, 'r', encoding="utf-8") as f:
                 parser = ReceiptParser()
                 for line in f:
                     parser.update_state(line)
