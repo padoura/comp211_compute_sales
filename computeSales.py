@@ -11,7 +11,6 @@ class StatsHandler(object):
         # data structures for total sales per product/AFM
         self.product_per_afm_sales = {}
         self.afm_per_product_sales = {}
-    
 
     # functions for updating data structures
     def update_stats(self, receipt):
@@ -87,14 +86,6 @@ class ReceiptEntry(object):
             return self.total_price == self.unit_price * self.amount
         except (OverflowError, ValueError):
             return False
-    
-
-def is_valid_afm(afm):
-    try:
-        int(afm)
-        return len(afm) == 10 and "-" not in afm
-    except ValueError:
-        return False
 
 class ReceiptParser(object):
     # Receipt parser states
@@ -223,11 +214,18 @@ class MenuHandler(object):
 
     def option_3(self):
         afm = input(ASK_AFM)
-        if is_valid_afm(afm):
+        if self.is_valid_afm(afm):
             return self.stats_handler.product_to_string(afm)
 
     def option_4(self):
         exit()
+
+    def is_valid_afm(self, afm):
+        try:
+            int(afm)
+            return len(afm) == 10 and "-" not in afm
+        except ValueError:
+            return False
 
 # main function
 def run_app():
