@@ -105,6 +105,10 @@ class ReceiptParser(object):
     ENTRY_PROVIDED = "entry_provided"
     TOTAL_PROVIDED = "total_provided"
     COMPLETED = "completed"
+    REGEX_SEPARATOR = "^-+$"
+    REGEX_AFM = r"^ΑΦΜ:\s+\d{10}$"
+    REGEX_ENTRY = r"^\w+:\s+\d+\s+\d+\.\d{2}\s+\d+\.\d{2}$"
+    REGEX_TOTAL = r"^ΣΥΝΟΛΟ:\s+\d+\.\d{2}$"
 
     def __init__(self):
         self.state = self.NOT_INITIALIZED
@@ -115,15 +119,15 @@ class ReceiptParser(object):
             return self.receipt
 
     def update_not_initialized(self, line):
-        if re.search("^-+$", line):
+        if re.search(self.REGEX_SEPARATOR, line):
             self.state = self.INITIALIZED
  
     def update_initialized(self, line):
-        if re.search(r"^ΑΦΜ:\s+\d{10}$", line):
+        if re.search(self.REGEX_AFM, line):
             tokens = re.split(r"\s+", line)
             self.receipt = Receipt(tokens[1])
             self.state = self.AFM_PROVIDED
-        elif not re.search("^-+$", line):
+        elif not re.search(self.REGEX_SEPARATOR, line):
             self.state = self.INVALID
             self.receipt = None
         else:
@@ -134,7 +138,7 @@ class ReceiptParser(object):
         self.update_initialized(line)
     
     def update_entry_provided(self, line):
-        if re.search(r"^\w+:\s+\d+\s+\d+\.\d{2}\s+\d+\.\d{2}$", line):
+        if re.search(self.REGEX_ENTRY, line):
             tokens = re.split(r"\s+", line)
             entry = ReceiptEntry(tokens[0].strip(":").upper(), int(tokens[1]), int(tokens[2].replace(".","")), int(tokens[3].replace(".","")))
             if (entry.has_correct_total()):
@@ -142,10 +146,10 @@ class ReceiptParser(object):
             else:
                 self.state = self.INVALID
                 self.receipt = None              
-        elif re.search("^-+$", line):
+        elif re.search(self.REGEX_SEPARATOR, line):
             self.state = self.INITIALIZED
             self.receipt = None
-        elif re.search(r"^ΣΥΝΟΛΟ:\s+\d+\.\d{2}$", line):
+        elif re.search(self.REGEX_TOTAL, line):
             tokens = re.split(r"\s+", line)
             if (self.receipt.has_correct_total(int(tokens[1].replace(".","")))):
                 self.state = self.TOTAL_PROVIDED
@@ -157,7 +161,7 @@ class ReceiptParser(object):
             self.receipt = None
     
     def update_afm_provided(self, line):
-        if re.search(r"^\w+:\s+\d+\s+\d+\.\d{2}\s+\d+\.\d{2}$", line):
+        if re.search(self.REGEX_ENTRY, line):
             tokens = re.split(r"\s+", line)
             entry = ReceiptEntry(tokens[0].strip(":").upper(), int(tokens[1]), int(tokens[2].replace(".","")), int(tokens[3].replace(".","")))
             if (entry.has_correct_total()):
@@ -166,7 +170,7 @@ class ReceiptParser(object):
             else:
                 self.state = self.INVALID
                 self.receipt = None              
-        elif re.search("^-+$", line):
+        elif re.search(self.REGEX_SEPARATOR, line):
             self.state = self.INITIALIZED
             self.receipt = None
         else:
@@ -174,14 +178,14 @@ class ReceiptParser(object):
             self.receipt = None
     
     def update_total_provided(self, line):
-        if re.search("^-+$", line):
+        if re.search(self.REGEX_SEPARATOR, line):
             self.state = self.COMPLETED
         else:
             self.state = self.INVALID
             self.receipt = None
     
     def update_invalid(self, line):
-        if re.search("^-+$", line):
+        if re.search(self.REGEX_SEPARATOR, line):
             self.state = self.INITIALIZED
 
     def update_state(self, line):
