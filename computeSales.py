@@ -1,4 +1,27 @@
 import re
+import time
+
+import sys
+
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
 
 # Constants for messages
 MENU = "Give your preference: (1: read new input file, 2: print statistics for a specific product, 3: print statistics for a specific AFM, 4: exit the program)"
@@ -199,6 +222,7 @@ class MenuHandler(object):
     def option_1(self):
         filename = input(ASK_INPUT)
         try:
+            start_time = time.time()
             with open(filename, 'r', encoding="utf-8") as f:
                 parser = ReceiptParser()
                 for line in f:
@@ -206,6 +230,7 @@ class MenuHandler(object):
                     receipt = parser.get_receipt()
                     if (receipt):
                         self.stats_handler.update_stats(receipt)
+            print("parsing time: " + str(time.time() - start_time))
         except (FileNotFoundError, UnicodeDecodeError, MemoryError):
             return
 
@@ -231,6 +256,8 @@ class MenuHandler(object):
 	# main function
     def run_app(self):
         while True:
+            print("afm_per_product_sales: " + str(get_size(self.stats_handler.afm_per_product_sales)) + " bytes")
+            print("product_per_afm_sales: " + str(get_size(self.stats_handler.product_per_afm_sales)) + " bytes")
             choice = input(MENU)
             result = self.call_chosen_method(choice)
             if result:
@@ -238,3 +265,6 @@ class MenuHandler(object):
 
 menu = MenuHandler()
 menu.run_app()
+
+
+# your code
