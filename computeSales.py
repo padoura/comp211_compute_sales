@@ -1,4 +1,27 @@
 import re
+import time
+
+import sys
+
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
 
 # Constants for messages
 MENU = "Give your preference: (1: read new input file, 2: print statistics for a specific product, 3: print statistics for a specific AFM, 4: exit the program)"
@@ -187,6 +210,7 @@ class ReceiptParser(object):
 class MenuHandler(object):
     def __init__(self):
         self.stats_handler = StatsHandler()
+        self.start_time = 0
 
     def call_chosen_method(self, choice):
         option = getattr(self, 'option_' + str(choice), lambda: None)
@@ -199,6 +223,7 @@ class MenuHandler(object):
     def option_1(self):
         filename = input(ASK_INPUT)
         try:
+            self.start_time = time.time()
             with open(filename, 'r', encoding="utf-8") as f:
                 parser = ReceiptParser()
                 for line in f:
@@ -211,10 +236,12 @@ class MenuHandler(object):
 
     def option_2(self):
         product = input(ASK_PRODUCT).upper()
+        self.start_time = time.time()
         return self.stats_handler.afm_to_string(product)
 
     def option_3(self):
         afm = input(ASK_AFM)
+        self.start_time = time.time()
         if self.is_valid_afm(afm):
             return self.stats_handler.product_to_string(afm)
 
@@ -231,10 +258,16 @@ class MenuHandler(object):
 	# main function
     def run_app(self):
         while True:
+            print("afm_per_product_sales: " + str(get_size(self.stats_handler.afm_per_product_sales)) + " bytes")
+            print("product_per_afm_sales: " + str(get_size(self.stats_handler.product_per_afm_sales)) + " bytes")
             choice = input(MENU)
             result = self.call_chosen_method(choice)
-            if result:
-                print(result)
+            # if result:
+            #     print(result)
+            print("option " + choice + ": " + str(time.time() - self.start_time))
 
 menu = MenuHandler()
 menu.run_app()
+
+
+# your code
