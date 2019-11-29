@@ -26,19 +26,17 @@ class StatsHandler(object):
                 else:
                     afm_sales[receipt.afm] = entry.total_price
             else:
-                    afm_sales = {receipt.afm : entry.total_price}
+                afm_sales = {receipt.afm : entry.total_price}
             self.product_per_afm_sales[entry.product] = afm_sales
         
     def update_afm_per_product(self, receipt):
         for entry in receipt.entries:
             if receipt.afm in self.afm_per_product_sales:
                 product_sales = self.afm_per_product_sales.get(receipt.afm)
-                if entry.product in product_sales:
-                    product_sales[entry.product] = product_sales[entry.product] + entry.total_price
-                else:
-                    product_sales[entry.product] = entry.total_price
+                if entry.product not in product_sales:
+                    product_sales.append(entry.product)
             else:
-                    product_sales = {entry.product : entry.total_price}
+                product_sales = [entry.product]
             self.afm_per_product_sales[receipt.afm] = product_sales
 
     # functions for preparing output
@@ -48,8 +46,11 @@ class StatsHandler(object):
             return "\n".join('{} {}'.format(afm, self.format_price(total_price)) for afm, total_price in sorted(afm_sales.items()))
 
     def product_to_string(self, afm):
-        product_sales = self.afm_per_product_sales.get(afm)
-        if product_sales:
+        if self.afm_per_product_sales.get(afm):
+            product_sales = dict.fromkeys(self.afm_per_product_sales.get(afm), 0)
+            for product in sorted(product_sales.keys()):
+                afm_sales = self.product_per_afm_sales.get(product)
+                product_sales[product] = afm_sales[afm]
             return "\n".join('{} {}'.format(product, self.format_price(total_price)) for product, total_price in sorted(product_sales.items()))
 
     def format_price(self, total_price):
