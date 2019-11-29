@@ -74,6 +74,7 @@ class Receipt(object):
 
     def has_correct_total(self, total_price):
         return self.total_price == total_price
+		
 class ReceiptEntry(object):
     def __init__(self, product, amount, unit_price, total_price):
         self.product = product
@@ -184,8 +185,8 @@ class ReceiptParser(object):
         update_method(line)
 
 class MenuHandler(object):
-    def __init__(self, stats_handler):
-        self.stats_handler = stats_handler
+    def __init__(self):
+        self.stats_handler = StatsHandler()
 
     def call_chosen_method(self, choice):
         option = getattr(self, 'option_' + str(choice), lambda: None)
@@ -223,18 +224,17 @@ class MenuHandler(object):
     def is_valid_afm(self, afm):
         try:
             int(afm)
-            return len(afm) == 10 and "-" not in afm
+            return len(afm) == 10 and "-" not in afm # reject negative numbers
         except ValueError:
             return False
 
-# main function
-def run_app():
-    stats_handler = StatsHandler()
-    while True:
-        choice = input(MENU)
-        menu = MenuHandler(stats_handler)
-        result = menu.call_chosen_method(choice)
-        if result:
-            print(result)
+	# main function
+    def run_app(self):
+        while True:
+            choice = input(MENU)
+            result = self.call_chosen_method(choice)
+            if result:
+                print(result)
 
-run_app()
+menu = MenuHandler()
+menu.run_app()
