@@ -1,2 +1,12 @@
 .vscode
 *.DS_Store
+/report/COMP211_Exercise2_Pantourakis.aux
+/report/COMP211_Exercise2_Pantourakis.bcf
+/report/COMP211_Exercise2_Pantourakis.log
+/report/COMP211_Exercise2_Pantourakis.out
+/report/COMP211_Exercise2_Pantourakis.run.xml
+/report/COMP211_Exercise2_Pantourakis.synctex.gz
+/report/01.definitions.tex
+/report/02.biblio.bib
+/report/COMP211_Exercise2_Pantourakis.tex
+/report/content.tex
