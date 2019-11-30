@@ -211,6 +211,7 @@ class ReceiptParser(object):
 class MenuHandler(object):
     def __init__(self):
         self.stats_handler = StatsHandler()
+        self.start_time = 0
 
     def call_chosen_method(self, choice):
         option = getattr(self, 'option_' + str(choice), lambda: None)
@@ -223,7 +224,7 @@ class MenuHandler(object):
     def option_1(self):
         filename = input(ASK_INPUT)
         try:
-            start_time = time.time()
+            self.start_time = time.time()
             with open(filename, 'r', encoding="utf-8") as f:
                 parser = ReceiptParser()
                 for line in f:
@@ -231,16 +232,17 @@ class MenuHandler(object):
                     receipt = parser.get_receipt()
                     if (receipt):
                         self.stats_handler.update_stats(receipt)
-            print("parsing time: " + str(time.time() - start_time))
         except (FileNotFoundError, UnicodeDecodeError, MemoryError):
             return
 
     def option_2(self):
         product = input(ASK_PRODUCT).upper()
+        self.start_time = time.time()
         return self.stats_handler.afm_to_string(product)
 
     def option_3(self):
         afm = input(ASK_AFM)
+        self.start_time = time.time()
         if self.is_valid_afm(afm):
             return self.stats_handler.product_to_string(afm)
 
@@ -261,8 +263,9 @@ class MenuHandler(object):
             print("product_per_afm_sales: " + str(get_size(self.stats_handler.product_per_afm_sales)) + " bytes")
             choice = input(MENU)
             result = self.call_chosen_method(choice)
-            if result:
-                print(result)
+            # if result:
+            #     print(result)
+            print("option " + choice + ": " + str(time.time() - self.start_time))
 
 menu = MenuHandler()
 menu.run_app()
